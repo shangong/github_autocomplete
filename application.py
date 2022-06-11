@@ -3,10 +3,10 @@ import sys
 import json
 from multiprocessing.pool import ThreadPool
 from time import time as timer
-from flask import Flask, render_template, request
+from flask import Flask, render_template, jsonify, request
 import requests
 
-app = Flask('github-search', template_folder='template') # template_folder=os.getcwd()
+app = Flask('github-search', template_folder='templates') # template_folder=os.getcwd()
 
 class Payload(object):
     def __init__(self, dict_object):
@@ -49,11 +49,11 @@ def fetch_commit(item):
     return Payload(_item)
 
 
-@app.route('/navigator')
+@app.route('/api/repo')
 def index():
     """
         Github repository search
-    :return:
+        :return:
     """
     search_term = request.args.get('search_term', '')
     print(search_term, file = sys.stdout) # log the term
@@ -61,21 +61,35 @@ def index():
 
     # query github repository using search term
     repository_url = 'https://api.github.com/search/repositories?q={}'.format(search_term)
-    headers = {'Accept': 'application/vnd.github.v3+json'}
-    resp = requests.get(repository_url, headers=headers)
+    headers = {
+        'Accept': 'application/vnd.github.v3+json'
+        }
+    resp = requests.get(repository_url, headers = headers)
+    
+    # if Request is successful
     if resp.status_code == 200:
         json_resp = json.loads(resp.content)
         json_items = json_resp.get('items', [])
+        print(type(json_items), file=sys.stdout)
         print(json_items, file=sys.stdout)
+    
+    else:
+        return jsonify({
+            "code": resp.status_code,
+            "message": "request error"
+        })
 
-        # sort result by creating date in descending order
-        #sorted_items = sorted(json_items, key=lambda x: x['created_at'], reverse=True)
-        #first_five_results = sorted_items[:5]
+    return jsonify(json_items)
 
-        #items = list(ThreadPool(5).imap_unordered(fetch_commit, first_five_results))
 
-    return json_items # render_template() #'template.html', **locals()
+@app.route('/search')
+def search():
+    return render_template('index.html')
 
+
+@app.route('/wiki')
+def wiki():
+    return render_template('wiki.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=9876, debug=False, use_reloader=False)
